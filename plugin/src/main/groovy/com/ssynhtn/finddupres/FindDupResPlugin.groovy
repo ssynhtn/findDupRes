@@ -118,8 +118,16 @@ class DuplicateFileTask extends DefaultTask {
 
     def readBytes(File file) {
         byte[] data = new byte[(int) file.length()]
-        def input = new BufferedInputStream(new FileInputStream(file))
-        input.read(data)
-        return data
+        def input
+        try {
+            input = new BufferedInputStream(new FileInputStream(file))
+            input.read(data)
+            return data
+        } finally {
+            if (input != null) {
+                input.close()
+            }
+        }
+
     }
 }
