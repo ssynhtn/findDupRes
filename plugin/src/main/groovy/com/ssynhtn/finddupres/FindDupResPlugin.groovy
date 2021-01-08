@@ -7,13 +7,12 @@ import org.gradle.api.DefaultTask
 import org.gradle.api.GradleException
 import org.gradle.api.Project
 import org.gradle.api.Plugin
-import org.gradle.api.logging.LogLevel
 import org.gradle.api.tasks.TaskAction
 
 import java.security.MessageDigest
 
 /**
- * A simple 'hello world' plugin.
+ * scan files in res folder to find duplicates
  */
 class FindDupResPlugin implements Plugin<Project> {
     void apply(Project project) {
@@ -38,9 +37,10 @@ class DuplicateFileTask extends DefaultTask {
 
     @TaskAction
     def printFiles() {
-        File file = new File("src/main/res")
 
-        def map = printFilesRec(file)
+        def resDirFiles = gatherResDirs()
+
+        def map = computeFileMD5Rec(resDirFiles)
         def dups = findDuplicates(map)
 
 
@@ -58,6 +58,21 @@ class DuplicateFileTask extends DefaultTask {
             println ""
         }
 
+    }
+
+    List<File> gatherResDirs() {
+        List<File> files = new ArrayList<>()
+        if (project.pluginManager.hasPlugin("com.android.application") ||
+            project.pluginManager.hasPlugin("com.android.library")) {
+            def resDirs = project.android.sourceSets.main.res.source
+            if (resDirs != null) {
+                resDirs.each {
+                    files.add(project.file(it))
+                }
+            }
+        }
+
+        return files
     }
 
     Map<String, Set<File>> findDuplicates(Map<File, String> map) {
@@ -78,7 +93,18 @@ class DuplicateFileTask extends DefaultTask {
         }
     }
 
-    def printFilesRec(File file) {
+    def computeFileMD5Rec(List<File> files) {
+        def res = new HashMap<>()
+        if (files != null) {
+            files.each {
+                res.putAll(computeFileMD5Rec(it))
+            }
+        }
+
+        return res
+    }
+
+    def computeFileMD5Rec(File file) {
         def res = new HashMap<>()
         if (file == null) return res
         if (file.isFile()) {
@@ -90,7 +116,7 @@ class DuplicateFileTask extends DefaultTask {
 
         def files = file.listFiles()
         files.each {
-            res.putAll(printFilesRec(it))
+            res.putAll(computeFileMD5Rec(it))
         }
 
         return res
